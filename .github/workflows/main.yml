@@ -25,6 +25,7 @@ jobs:
         run: |
           python --version
           pip --version
+          docker --version
 
       - name: Install dependencies
         run: |
@@ -34,7 +35,6 @@ jobs:
       - name: Set MLflow Tracking URI
         run: |
           echo "MLFLOW_TRACKING_URI=file:./mlruns" >> $GITHUB_ENV
-          echo "Tracking URI di-set ke file:./mlruns"
 
       - name: Run MLflow Project
         working-directory: MLProject
@@ -56,9 +56,14 @@ jobs:
           echo "RUN_ID=$RUN_ID" >> $GITHUB_OUTPUT
           echo "Latest Run ID: $RUN_ID"
 
-      - name: Install Python dependencies for artifact handling
+      - name: Copy model artifact for Docker
+        working-directory: MLProject
         run: |
-          pip install --upgrade pip
+          MODEL_PATH=$(find mlruns -type d -path "*/artifacts/model" | head -1)
+          echo "Model path: $MODEL_PATH"
+          mkdir -p model_artifact
+          cp -r "$MODEL_PATH"/* model_artifact/
+          ls -la model_artifact/
 
       - name: Upload artifacts to GitHub
         uses: actions/upload-artifact@v4
@@ -66,6 +71,9 @@ jobs:
           name: mlflow-model-artifacts
           path: MLProject/mlruns/
           retention-days: 30
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -76,15 +84,17 @@ jobs:
       - name: Build Docker Model
         working-directory: MLProject
         run: |
-          mlflow models build-docker --model-uri "runs:/${{ steps.get_run.outputs.RUN_ID }}/model" --name personality-classifier
+          docker build -t personality-classifier:latest .
 
       - name: Tag Docker Image
         run: |
-          docker tag personality-classifier ${{ secrets.DOCKER_HUB_USERNAME }}/personality-classifier:latest
+          docker tag personality-classifier:latest ${{ secrets.DOCKER_HUB_USERNAME }}/personality-classifier:latest
 
       - name: Push Docker Image
         run: |
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/personality-classifier:latest
 
       - name: Complete job
-        run: echo "ML CI/CD pipeline completed successfully"
+        run: |
+          echo "✅ ML CI/CD pipeline completed successfully"
+          echo "🐳 Docker image: ${{ secrets.DOCKER_HUB_USERNAME }}/personality-classifier:latest"
