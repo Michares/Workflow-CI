@@ -1,13 +1,11 @@
-FROM python:3.12-slim
+﻿FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python deps
 RUN pip install --no-cache-dir \
     mlflow==2.19.0 \
     scikit-learn==1.5.2 \
@@ -15,10 +13,8 @@ RUN pip install --no-cache-dir \
     numpy==2.4.6 \
     joblib==1.5.3
 
-# Copy model artifacts (akan di-populate oleh CI workflow)
 COPY model_artifact/ /app/model/
 
 EXPOSE 8080
 
-# Serve model dengan mlflow models serve
 CMD ["mlflow", "models", "serve", "-m", "/app/model", "-h", "0.0.0.0", "-p", "8080", "--no-conda"]
