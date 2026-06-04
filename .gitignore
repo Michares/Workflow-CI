@@ -7,3 +7,6 @@ model_artifact/
 .vscode/
 .idea/
 *.log
+
+apikey*.txt
+*.token
